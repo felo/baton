@@ -16,6 +16,8 @@ import { render, TOOL_NAMES } from "./render.ts";
 import { describe, isOld, keepDays, list, localDate, remove, save, select, selectAll, STATUS_LABELS, storeDir } from "./store.ts";
 import type { Entry } from "./store.ts";
 import { interactive, openTerminal } from "./terminal.ts";
+import { batonOnPath, hookLine, install, isInstalled, rcFile, shellOf, uninstall } from "./setup.ts";
+import type { Shell } from "./setup.ts";
 import { isDir, plural, tildify } from "./util.ts";
 
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
@@ -50,9 +52,8 @@ Switch agents in one go:
     --yolo, --no-yolo         skip permission prompts or not (default: as before)
     --dry-run                 show what would happen, change nothing
   From a terminal it starts the agent right there. Inside an agent (\`! baton codex\`)
-  it closes that agent and starts the next in the same window, once you've added
-  this to ~/.zshrc (or ~/.bashrc with "bash"):
-    eval "$(baton init zsh)"
+  it closes that agent and starts the next in the same window, after a one-time:
+    baton setup               adds one line to your shell config (--undo removes it)
   With Cogenity installed, the agent starts on the account with room left.
 
 Or start one yourself:
@@ -315,8 +316,36 @@ async function runHandoff(target: Tool | "next", args: Args): Promise<void> {
   if (openTab(line)) return say(`\nOpened ${who} in a new tab. You can close this chat.`);
   say(
     `\nStart ${who} with:\n  ${line}\n\n` +
-      `Tip: add this line to ~/.zshrc, and next time \`! baton ${tool}\` switches in this window by itself:\n  eval "$(baton init zsh)"`,
+      `Tip: run \`baton setup\` once in a terminal, and next time \`! baton ${tool}\` switches in this window by itself.`,
   );
+}
+
+async function runSetup(args: Args): Promise<void> {
+  const shell = (args._[0] as Shell | undefined) ?? shellOf();
+  if (shell !== "zsh" && shell !== "bash") {
+    const name = args._[0] || path.basename(process.env.SHELL || "");
+    fail(`\`baton setup\` supports zsh and bash${name ? `, not ${name}` : ""}. Try \`baton setup zsh\`.`);
+  }
+  const file = rcFile(shell);
+  const where = tildify(file);
+
+  if (args.undo) {
+    return say(uninstall(file) ? `Removed the baton line from ${where}. Open a new terminal tab for it to take effect.` : `Nothing to remove: ${where} has no baton line.`);
+  }
+  if (isInstalled(file)) return say(`Already set up: ${where} has the baton line. \`! baton codex\` switches in the same window.`);
+  if (!batonOnPath()) fail("the shell line calls `baton` by name, so install it first: npm i -g baton-ai");
+
+  say(
+    `This adds one line to ${where}:\n\n  ${hookLine(shell)}\n\n` +
+      "After an agent runs `! baton codex` (or claude, or next), it starts the next agent in the same window.\n" +
+      "It does nothing else, and `baton setup --undo` removes it.\n",
+  );
+  if (!args.yes) {
+    if (!interactive()) return say(`Run \`baton setup --yes\` to add it, or add the line yourself.`);
+    if (!(await ask(`Add it to ${where}?`, true))) return say("Nothing changed.");
+  }
+  install(file, shell);
+  say(`Added. Open a new terminal tab to turn it on (or run: source ${where}).`);
 }
 
 function runInit(args: Args): void {
@@ -340,7 +369,7 @@ async function main(argv: string[]): Promise<void> {
     if (err.code === "EPIPE") process.exit(0);
     throw err;
   });
-  const commands = ["save", "list", "ls", "take", "pick", "clean", "flush", "claude", "codex", "next", "init", "_next", "help"];
+  const commands = ["save", "list", "ls", "take", "pick", "clean", "flush", "claude", "codex", "next", "setup", "init", "_next", "help"];
   const command = commands.includes(argv[0]) ? argv[0] : "save";
   const args = parseArgs(command === argv[0] ? argv.slice(1) : argv);
 
@@ -351,6 +380,7 @@ async function main(argv: string[]): Promise<void> {
   }
   if (command === "save") return runSave(args);
   if (command === "claude" || command === "codex" || command === "next") return runHandoff(command, args);
+  if (command === "setup") return runSetup(args);
   if (command === "init") return runInit(args);
   if (command === "_next") return runNext();
 

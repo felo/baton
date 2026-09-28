@@ -142,7 +142,7 @@ test("inside an agent without the hook: prints the command and how to set the ho
     const r = baton(["codex"], { bin: f.bin, env: { BATON_AGENT: `claude:${agent.pid}`, BATON_NO_COGENITY: "1" } });
     assert.equal(r.code, 0, r.err);
     assert.match(r.out, /Start Codex with:\n {2}cd .* && codex 'Read the hand-over at /);
-    assert.match(r.out, /eval "\$\(baton init zsh\)"/);
+    assert.match(r.out, /run `baton setup` once/);
     assert.equal(agent.exitCode, null, "still running");
     assert.ok(!fs.existsSync(notePath(r.dir)));
   } finally {

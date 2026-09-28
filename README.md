@@ -43,13 +43,15 @@ baton claude       # …or Claude Code
 baton next         # …or whichever has the most usage left
 ```
 
-From a terminal, the next agent starts right there. From inside a chat, type `! baton codex`: baton closes the current agent and starts the next one in the same window. For that, add this line to your `~/.zshrc` (or `~/.bashrc`, with `bash`) once:
+From a terminal, the next agent starts right there.
+
+From inside a chat, type `! baton codex`: baton closes the current agent and starts the next one in the same window. That one feature needs a one-time setup, because only your shell is still around after the agent closes:
 
 ```sh
-eval "$(baton init zsh)"
+baton setup        # adds one line to ~/.zshrc or ~/.bash_profile, after asking; --undo removes it
 ```
 
-Without it, baton opens the next agent in a new tab (Terminal and iTerm) or prints the command to run.
+Without it, baton opens the next agent in a new tab (Terminal and iTerm) or prints the command to run. Nothing else in baton needs setup.
 
 **With [Cogenity](https://github.com/kennethlynne/cogenity)**, the next agent starts on the account with the most room left. Out of tokens on one Claude account? `! baton claude` carries on with another. If every account for that tool is used up, baton says when they reset and offers the other tool instead.
 
@@ -97,7 +99,7 @@ One Markdown file, written to be read top to bottom:
 | `baton flush` | Delete them all, after a y/N check |
 | `baton codex` / `baton claude` | Save this session and start that agent on it |
 | `baton next` | Same, with whichever agent has the most usage left (Cogenity) |
-| `baton init zsh` | The shell hook that lets `! baton codex` switch in place |
+| `baton setup` | One-time: lets `! baton codex` switch in the same window (`--undo` removes it) |
 
 When an agent runs `baton take` there's no keyboard, so it gets the latest one straight away.
 
