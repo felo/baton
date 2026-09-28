@@ -73,7 +73,7 @@ Useful options:
 
 - **Claude Code**
 - **Codex**
-- Multiple accounts (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`, Cogenity)
+- Multiple accounts: custom `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, and [Cogenity](https://github.com/kennethlynne/cogenity), whose chats `baton` finds on every account automatically
 
 Hand-overs go both ways: Claude → Codex, Codex → Claude, Claude → Claude on another account. The file is plain Markdown, so any agent that can read a file can pick it up.
 
