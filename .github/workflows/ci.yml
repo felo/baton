@@ -38,6 +38,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-      - run: npm install -g ./agent-baton-*.tgz
+      - run: npm install -g ./baton-ai-*.tgz
       - run: baton --version
       - run: baton --help

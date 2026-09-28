@@ -14,7 +14,7 @@ Save the current session with [baton](https://github.com/felo/baton) so another 
 2. Run it from the project's working directory:
 
    ```sh
-   if command -v baton >/dev/null; then baton; else npx -y agent-baton; fi
+   if command -v baton >/dev/null; then baton; else npx -y baton-ai; fi
    ```
 
    Useful options, only when the user asks for them:
@@ -29,7 +29,7 @@ Save the current session with [baton](https://github.com/felo/baton) so another 
    codex "$(baton take)"
    ```
 
-   (With `npx -y agent-baton take` in place of `baton take` if it isn't installed.)
+   (With `npx -y baton-ai take` in place of `baton take` if it isn't installed.)
 
 ## Notes
 

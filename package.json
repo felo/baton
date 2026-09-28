@@ -1,5 +1,5 @@
 {
-  "name": "agent-baton",
+  "name": "baton-ai",
   "version": "0.1.0",
   "description": "Pass your Claude Code or Codex session to the next agent: one file with the whole conversation, your rules, and your unfinished code.",
   "type": "module",

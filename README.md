@@ -7,7 +7,7 @@ Your agent ran out of tokens halfway through a task. Or you want Codex to finish
 `baton` fixes that with one command. It saves your session as a single file the next agent reads to continue exactly where the last one stopped, whatever the model.
 
 ```sh
-npx agent-baton
+npx baton-ai
 ```
 
 No AI involved, so it works even when you're out of tokens.
@@ -19,21 +19,21 @@ No AI involved, so it works even when you're out of tokens.
 **1. Save the session.** Inside Claude Code, type:
 
 ```
-! npx agent-baton
+! npx baton-ai
 ```
 
-(Or run `npx agent-baton` in a terminal, from the project folder.)
+(Or run `npx baton-ai` in a terminal, from the project folder.)
 
 **2. Start the next agent on it:**
 
 ```sh
-claude "$(npx agent-baton take)"
-codex "$(npx agent-baton take)"
+claude "$(npx baton-ai take)"
+codex "$(npx baton-ai take)"
 ```
 
 That's it. The new agent reads the hand-over and carries on.
 
-> Install it once with `npm i -g agent-baton` and every command above is just `baton`.
+> Install it once with `npm i -g baton-ai` and every command above is just `baton`.
 
 ### Or just ask your agent
 
