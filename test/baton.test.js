@@ -6,6 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseClaude } from "../src/claude.js";
+import { locate } from "../src/locate.js";
 import { parseCodex } from "../src/codex.js";
 import { render, stopStatus } from "../src/render.js";
 import { fullPatch } from "../src/repo.js";
@@ -116,4 +117,21 @@ test("store: save, list newest first, select by number and text", () => {
   assert.equal(select(entries, "API").entry.title, "Old thing");
   assert.equal(select(entries, "2026-01-01").entry.title, "Old thing");
   assert.equal(select(entries, "nope").entry, null);
+});
+
+test("locate: finds sessions in the standard ~/.claude and ~/.codex folders by working directory", () => {
+  const home = process.env.HOME; // a throwaway folder, see setup.js
+  const app = path.join(home, "work/app");
+  const game = path.join(home, "work/game");
+  const claudeDir = path.join(home, ".claude/projects/-work-app");
+  const codexDir = path.join(home, ".codex/sessions/2026/01/02");
+  for (const d of [app, game, claudeDir, codexDir]) fs.mkdirSync(d, { recursive: true });
+  const copy = (src, dest, from, to) => fs.writeFileSync(dest, fs.readFileSync(fixture(src), "utf8").replaceAll(from, to));
+  copy("claude.jsonl", path.join(claudeDir, "abc-123.jsonl"), "/work/app", app);
+  copy("codex.jsonl", path.join(codexDir, "rollout-2026-01-02T09-00-00-0199.jsonl"), "/work/game", game);
+
+  assert.equal(locate({ cwd: app }).tool, "claude");
+  assert.equal(locate({ cwd: game }).tool, "codex");
+  assert.equal(locate({ session: "abc-123" }).tool, "claude");
+  assert.throws(() => locate({ cwd: path.join(home, "elsewhere") }), /no Claude Code or Codex session/);
 });

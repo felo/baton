@@ -85,7 +85,7 @@ async function runSave(args) {
   const kb = Math.max(1, Math.round(Buffer.byteLength(markdown) / 1024));
   const out = [
     `Saved ${tildify(file)}`,
-    `  ${TOOL_NAMES[info.source]} · ${STATUS_LABELS[info.status]} · ${info.userMessages} messages from you · ${kb} KB`,
+    `  ${TOOL_NAMES[info.source]} · ${STATUS_LABELS[info.status]} · ${info.userMessages} message${info.userMessages === 1 ? "" : "s"} from you · ${kb} KB`,
     "",
     "Hand it to the next agent:",
   ];
