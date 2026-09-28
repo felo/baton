@@ -1,6 +1,6 @@
-# baton
+<p align="center"><img src="assets/logo.svg" alt="baton" width="560"></p>
 
-**Pass your AI coding session to the next agent.**
+<p align="center"><b>Pass your AI coding session to the next agent.</b></p>
 
 Your agent ran out of tokens halfway through a task. Or you want Codex to finish what Claude started. Either way, the new agent starts from zero, and you end up explaining everything again.
 

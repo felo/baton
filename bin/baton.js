@@ -8,6 +8,7 @@ import { parseCodex } from "../src/codex.js";
 import { render, TOOL_NAMES } from "../src/render.js";
 import { list, localDate, save, select, STATUS_LABELS, storeDir } from "../src/store.js";
 import { pick } from "../src/picker.js";
+import { showLogo } from "../src/logo.js";
 import { HOME } from "../src/util.js";
 
 const { version } = createRequire(import.meta.url)("../package.json");
@@ -63,7 +64,7 @@ function continuePrompt(file) {
   return `Read the hand-over at ${file}. Another AI agent wrote it when it had to stop. Start with its Briefing section, then continue the work.`;
 }
 
-function runSave(args) {
+async function runSave(args) {
   if (args.tool && !TOOL_NAMES[args.tool]) fail("--tool must be claude or codex");
   let found;
   try {
@@ -77,7 +78,10 @@ function runSave(args) {
     process.stdout.write(markdown);
     return;
   }
-  const file = save(markdown, info, args.out ? path.resolve(args.out) : undefined);
+  const dir = args.out ? path.resolve(args.out) : storeDir();
+  const firstRun = !fs.existsSync(dir);
+  const file = save(markdown, info, dir);
+  if (firstRun && !args.out) await showLogo();
   const kb = Math.max(1, Math.round(Buffer.byteLength(markdown) / 1024));
   const out = [
     `Saved ${tildify(file)}`,
@@ -124,7 +128,10 @@ async function main() {
   const command = commands.includes(cmd) ? cmd : "save";
 
   if (args.version) return void process.stdout.write(version + "\n");
-  if (args.help || command === "help") return void process.stdout.write(HELP);
+  if (args.help || command === "help") {
+    await showLogo();
+    return void process.stdout.write(HELP);
+  }
 
   if (command === "save") return runSave(args);
 
