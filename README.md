@@ -35,6 +35,25 @@ That's it. The new agent reads the hand-over and carries on.
 
 > Install it once with `npm i -g agent-baton` and every command above is just `baton`.
 
+### Or just ask your agent
+
+Add the skills once:
+
+```sh
+npx skills add felo/baton              # Claude Code, Codex, Cursor and others
+```
+
+In Claude Code you can install it as a plugin instead:
+
+```
+/plugin marketplace add felo/baton
+/plugin install baton@baton
+```
+
+Then say **"pass the baton"** to save, and **"take the baton"** in the new chat to pick up where it left off. The new agent reads the hand-over, checks your code, tells you what it's picking up, and carries on.
+
+> Already out of tokens? Use the command above instead: it needs no AI, so it still works.
+
 ---
 
 ## What the next agent gets
@@ -73,7 +92,7 @@ Useful options:
 
 - **Claude Code**
 - **Codex**
-- Multiple accounts: custom `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, and [Cogenity](https://github.com/kennethlynne/cogenity), whose chats `baton` finds on every account automatically
+- Multiple accounts: custom `CLAUDE_CONFIG_DIR` / `CODEX_HOME`, and [Cogenity](https://github.com/kennethlynne/cogenity) by [Kenneth Lynne](https://github.com/kennethlynne), whose chats `baton` finds on every account automatically
 
 Hand-overs go both ways: Claude → Codex, Codex → Claude, Claude → Claude on another account. The file is plain Markdown, so any agent that can read a file can pick it up.
 

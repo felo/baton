@@ -1,0 +1,13 @@
+{
+  "name": "baton",
+  "version": "0.1.0",
+  "description": "Pass your coding session to the next agent, or pick one up: the whole conversation, your rules and your unfinished code in one file.",
+  "author": {
+    "name": "Felipe Longé",
+    "url": "https://github.com/felo"
+  },
+  "homepage": "https://github.com/felo/baton",
+  "repository": "https://github.com/felo/baton",
+  "license": "MIT",
+  "keywords": ["handoff", "handover", "context", "codex", "session"]
+}

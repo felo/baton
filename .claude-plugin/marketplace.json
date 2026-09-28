@@ -1,0 +1,15 @@
+{
+  "name": "baton",
+  "description": "baton: hand AI coding sessions between agents and accounts.",
+  "owner": {
+    "name": "Felipe Longé",
+    "url": "https://github.com/felo"
+  },
+  "plugins": [
+    {
+      "name": "baton",
+      "source": "./",
+      "description": "Pass your coding session to the next agent, or pick one up: the whole conversation, your rules and your unfinished code in one file."
+    }
+  ]
+}
