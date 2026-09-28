@@ -1,0 +1,12 @@
+{"type": "ai-title", "aiTitle": "Add dark mode", "sessionId": "s1"}
+{"type": "permission-mode", "permissionMode": "default", "sessionId": "s1"}
+{"type": "user", "cwd": "/work/app", "gitBranch": "main", "timestamp": "2026-01-01T10:00:00Z", "message": {"role": "user", "content": "Add a dark mode toggle to settings\n<system-reminder>ignore me</system-reminder>"}}
+{"type": "assistant", "cwd": "/work/app", "timestamp": "2026-01-01T10:00:05Z", "perTurnEffort": "high", "message": {"role": "assistant", "model": "claude-test-1", "content": [{"type": "thinking", "thinking": "", "signature": "abc"}, {"type": "text", "text": "Here's the plan."}, {"type": "tool_use", "id": "p1", "name": "ExitPlanMode", "input": {"plan": "# Dark mode\n1. Add toggle\n2. Persist choice"}}]}}
+{"type": "user", "timestamp": "2026-01-01T10:01:00Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "p1", "content": "User has approved your plan. You can now start coding."}]}}
+{"type": "assistant", "timestamp": "2026-01-01T10:01:05Z", "message": {"role": "assistant", "model": "claude-test-1", "content": [{"type": "tool_use", "id": "t1", "name": "Edit", "input": {"file_path": "/work/app/settings.js", "old_string": "a", "new_string": "b"}}]}}
+{"type": "user", "timestamp": "2026-01-01T10:01:06Z", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t1", "content": "ok token=abcdefghijklmnopqrstuv"}]}}
+{"type": "assistant", "isSidechain": true, "message": {"role": "assistant", "content": [{"type": "text", "text": "SUBAGENT CHATTER"}]}}
+{"type": "attachment", "attachment": {"type": "queued_command", "prompt": "also make it follow the system theme", "humanTurn": true}, "timestamp": "2026-01-01T10:01:07Z"}
+{"type": "user", "promptSource": "system", "timestamp": "2026-01-01T10:01:08Z", "message": {"role": "user", "content": "<task-notification>\n<status>completed</status>\n</task-notification>"}}
+{"type": "assistant", "timestamp": "2026-01-01T10:01:09Z", "message": {"role": "assistant", "model": "claude-test-1", "content": [{"type": "tool_use", "id": "t2", "name": "Bash", "input": {"command": "npm test", "description": "Run tests"}}]}}
+{"type": "assistant", "isApiErrorMessage": true, "error": "rate_limit", "timestamp": "2026-01-01T10:01:10Z", "message": {"role": "assistant", "model": "<synthetic>", "content": [{"type": "text", "text": "You've hit your session limit \u00b7 resets 4am"}]}}

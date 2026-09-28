@@ -1,0 +1,40 @@
+{
+  "name": "agent-baton",
+  "version": "0.1.0",
+  "description": "Pass your Claude Code or Codex session to the next agent: one file with the whole conversation, your rules, and your unfinished code.",
+  "type": "module",
+  "bin": {
+    "baton": "bin/baton.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --import ./test/setup.js --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "codex",
+    "ai",
+    "agent",
+    "handoff",
+    "handover",
+    "context",
+    "cli"
+  ],
+  "author": "Felipe Longé",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/felo/baton.git"
+  },
+  "homepage": "https://github.com/felo/baton#readme",
+  "bugs": "https://github.com/felo/baton/issues"
+}

@@ -1,0 +1,9 @@
+{"timestamp": "2026-01-02T09:00:00Z", "type": "session_meta", "payload": {"id": "0199", "cwd": "/work/game", "git": {"branch": "dev"}}}
+{"timestamp": "2026-01-02T09:00:00Z", "type": "turn_context", "payload": {"model": "gpt-test", "effort": "medium", "sandbox_policy": {"type": "workspace-write"}, "approval_policy": "on-request", "collaboration_mode": {"mode": "default"}}}
+{"timestamp": "2026-01-02T09:00:01Z", "type": "response_item", "payload": {"type": "message", "role": "developer", "content": [{"type": "input_text", "text": "system stuff"}]}}
+{"timestamp": "2026-01-02T09:00:01Z", "type": "response_item", "payload": {"type": "message", "role": "user", "content": [{"type": "input_text", "text": "<environment_context>\n<cwd>/work/game</cwd>\n</environment_context>"}, {"type": "input_text", "text": "Make the jump higher"}]}}
+{"timestamp": "2026-01-02T09:00:02Z", "type": "response_item", "payload": {"type": "reasoning", "summary": [{"type": "summary_text", "text": "**Finding jump physics**"}], "encrypted_content": "xyz"}}
+{"timestamp": "2026-01-02T09:00:03Z", "type": "response_item", "payload": {"type": "function_call", "name": "update_plan", "arguments": "{\"plan\": [{\"step\": \"Find jump code\", \"status\": \"completed\"}, {\"step\": \"Raise velocity\", \"status\": \"in_progress\"}]}"}}
+{"timestamp": "2026-01-02T09:00:04Z", "type": "response_item", "payload": {"type": "custom_tool_call", "name": "apply_patch", "call_id": "c1", "input": "*** Begin Patch\n*** Update File: src/player.ts\n@@\n-jump = 5\n+jump = 8\n*** End Patch"}}
+{"timestamp": "2026-01-02T09:00:05Z", "type": "response_item", "payload": {"type": "custom_tool_call_output", "call_id": "c1", "output": [{"type": "input_text", "text": "Success"}]}}
+{"timestamp": "2026-01-02T09:00:06Z", "type": "response_item", "payload": {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": "Jump raised from 5 to 8."}]}}
