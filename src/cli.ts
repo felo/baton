@@ -270,14 +270,11 @@ async function runHandoff(target: Tool | "next", args: Args): Promise<void> {
     const msg = `Every ${TOOL_NAMES[tool]} account is used up${until}.`;
     const alt = status ? choose(status, other(tool)) : null;
     if (alt && !alt.exhausted) {
-      if (!interactive()) fail(`${msg} Use \`baton ${alt.tool}\` or \`baton next\` instead, or pass --account to use one anyway.`);
-      if (await ask(`${msg} Hand over to ${TOOL_NAMES[alt.tool]} instead?`, true)) {
-        tool = alt.tool;
-        chosen = alt;
-      }
+      say(`${msg} Switching to ${TOOL_NAMES[alt.tool]} on ${alt.account} (${alt.used}% used).`);
+      tool = alt.tool;
+      chosen = alt;
     } else {
-      if (!interactive()) fail(`${msg} So is every other account. Pass --account to use one anyway.`);
-      if (!(await ask(`${msg} So is every other account. Start it anyway?`, false))) return say("Nothing changed.");
+      fail(`${msg} No available account on the other tool. Pass --account to use a specific account anyway.`);
     }
   }
 

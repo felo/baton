@@ -1,6 +1,6 @@
 {
   "name": "baton",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Pass your coding session to the next agent, or pick one up: the whole conversation, your rules and your unfinished code in one file.",
   "author": {
     "name": "Felipe Longé",

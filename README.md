@@ -53,7 +53,7 @@ baton setup        # adds one line to ~/.zshrc or ~/.bash_profile, after asking;
 
 Without it, baton opens the next agent in a new tab (Terminal and iTerm) or prints the command to run. Nothing else in baton needs setup.
 
-**With [Cogenity](https://github.com/kennethlynne/cogenity)**, the next agent starts on the account with the most room left. Out of tokens on one Claude account? `! baton claude` carries on with another. If every account for that tool is used up, baton says when they reset and offers the other tool instead.
+**With [Cogenity](https://github.com/kennethlynne/cogenity)**, the next agent starts on the account with the most room left. Out of tokens on one Claude account? `! baton claude` carries on with another. If every account for that tool is used up, baton says when they reset and automatically switches to an available account on the other tool. No account selection or confirmation is needed. If both tools are exhausted, it stops and explains; `--account` lets you explicitly choose one anyway.
 
 ### Or just ask your agent
 
@@ -158,3 +158,7 @@ Written in TypeScript; tests run straight from the source with Node's built-in t
 ## License
 
 MIT
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.

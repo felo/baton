@@ -52,11 +52,11 @@ function choice(tool: Tool, a: Account): Choice {
   return { tool, account: a.email, used, exhausted: used >= 100, resetsAt };
 }
 
-/** The account Cogenity would pick for a tool; if it names none, the least used. */
+/** The unlocked account with the most room; Cogenity's pick breaks ties. */
 export function choose(status: Status, tool: Tool): Choice | null {
   const accounts = (status.tools[tool]?.accounts ?? []).filter((a) => a.email && !a.locked);
   if (!accounts.length) return null;
-  const picked = accounts.find((a) => a.wouldPick) ?? [...accounts].sort((a, b) => usedOf(a) - usedOf(b))[0];
+  const picked = [...accounts].sort((a, b) => usedOf(a) - usedOf(b) || Number(!!b.wouldPick) - Number(!!a.wouldPick))[0];
   return choice(tool, picked);
 }
 

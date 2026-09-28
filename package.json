@@ -1,6 +1,6 @@
 {
   "name": "baton-ai",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Pass your Claude Code or Codex session to the next agent: one file with the whole conversation, your rules, and your unfinished code.",
   "type": "module",
   "bin": {
@@ -9,6 +9,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

@@ -18,10 +18,11 @@ test("usedOf: the tightest real limit; display-only buckets don't count", () => 
   assert.equal(usedOf({ email: "a" }), 0);
 });
 
-test("choose: Cogenity's own pick wins; otherwise the least used; locked accounts skipped", () => {
-  assert.equal(choose(status([acct("a", [10]), acct("b", [90], { wouldPick: true })], []), "claude")?.account, "b");
+test("choose: least used wins; Cogenity breaks ties; locked accounts skipped", () => {
+  assert.equal(choose(status([acct("a", [10]), acct("b", [90], { wouldPick: true })], []), "claude")?.account, "a");
   assert.equal(choose(status([acct("a", [70]), acct("b", [20])], []), "claude")?.account, "b");
   assert.equal(choose(status([acct("a", [0], { locked: true }), acct("b", [50])], []), "claude")?.account, "b");
+  assert.equal(choose(status([acct("a", [20]), acct("b", [20], { wouldPick: true })], []), "claude")?.account, "b");
   assert.equal(choose(status([], []), "codex"), null);
 });
 

@@ -97,13 +97,21 @@ test("next without Cogenity, outside an agent, explains itself", () => {
   assert.deepEqual(f.calls(), []);
 });
 
-test("a used-up tool: without a keyboard, stops and suggests the one with room; nothing is started", () => {
+test("a used-up tool: switches automatically to the other provider without a keyboard", () => {
   const f = fakes(status([acct("c1@x", 100, { wouldPick: true })], [acct("x1@x", 5, { wouldPick: true })]));
   const r = baton(["claude"], { bin: f.bin });
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /Switching to Codex on x1@x/);
+  assert.deepEqual(f.calls()[0].args.slice(0, 4), ["--codex", "--account", "x1@x", "--"]);
+});
+
+test("all accounts exhausted: exits without prompting, saving, or starting an agent", () => {
+  const f = fakes(status([acct("c1@x", 100)], [acct("x1@x", 100)]));
+  const r = baton(["codex"], { bin: f.bin });
   assert.equal(r.code, 1);
-  assert.match(r.err, /Every Claude Code account is used up .*Use `baton codex` or `baton next` instead/);
+  assert.match(r.err, /No available account on the other tool/);
   assert.deepEqual(f.calls(), []);
-  assert.deepEqual(fs.existsSync(r.dir) ? fs.readdirSync(r.dir) : [], [], "and nothing saved");
+  assert.deepEqual(fs.existsSync(r.dir) ? fs.readdirSync(r.dir) : [], []);
 });
 
 test("--account overrides the used-up check", () => {
