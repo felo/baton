@@ -1,22 +1,24 @@
-import { contentText, describeToolInput, readJsonl, stripNoise } from "./util.js";
-import { INJECTED, newMeta, note } from "./model.js";
+import { INJECTED, newMeta, note } from "./model.ts";
+import type { Parsed, Turn } from "./model.ts";
+import { contentText, describeToolInput, readJsonl, stripNoise } from "./util.ts";
+import type { Json } from "./util.ts";
 
 const PATCH_FILE = /^\*\*\* (?:Add|Update|Delete) File: (.+)$/gm;
 // Context Codex adds to the first user message; dropped rather than shown as notices.
 const CONTEXT_TAGS = ["<environment_context", "<recommended_plugins", "<user_instructions", "<permissions", "<INSTRUCTIONS"];
 
-/** Read a Codex rollout transcript into the shared turn format (see model.js). */
-export function parseCodex(file) {
+/** Read a Codex rollout transcript into the shared turn format. */
+export function parseCodex(file: string): Parsed {
   const meta = newMeta();
-  const turns = [];
-  const files = new Set();
+  const turns: Turn[] = [];
+  const files = new Set<string>();
 
   for (const e of readJsonl(file)) {
     const t = e.type;
     const p = e.payload || {};
     if (t === "session_meta") {
-      meta.cwd = p.cwd;
-      meta.branch = p.git?.branch || null;
+      meta.cwd = p.cwd ?? null;
+      meta.branch = p.git?.branch ?? null;
     }
     if (t === "turn_context") {
       if (p.model) meta.models.add(p.model);
@@ -33,20 +35,20 @@ export function parseCodex(file) {
     }
     if (t !== "response_item") continue;
 
-    meta.first ||= e.timestamp;
+    meta.first ||= e.timestamp ?? null;
     meta.last = e.timestamp || meta.last;
 
     if (p.type === "reasoning") {
       // The reasoning itself is encrypted; Codex keeps a short plain title per step.
       for (const part of p.summary || []) {
-        const title = (part.text || "").trim().replace(/^\*+|\*+$/g, "").trim();
+        const title = String(part.text || "").trim().replace(/^\*+|\*+$/g, "").trim();
         if (title) turns.push({ kind: "thought", text: title });
       }
     } else if (p.type === "message") {
       if (p.role !== "user" && p.role !== "assistant") continue;
-      let parts = Array.isArray(p.content) ? p.content : [];
+      let parts: Json[] = Array.isArray(p.content) ? p.content : [];
       if (p.role === "user") {
-        parts = parts.filter((c) => !CONTEXT_TAGS.some((tag) => (c.text || "").trimStart().startsWith(tag)));
+        parts = parts.filter((c) => !CONTEXT_TAGS.some((tag) => String(c.text || "").trimStart().startsWith(tag)));
         if (parts.length && parts.every((c) => INJECTED.test(c.text || ""))) {
           turns.push({ kind: "notice", text: stripNoise(contentText(parts)) });
           continue;
@@ -56,7 +58,7 @@ export function parseCodex(file) {
       if (text) turns.push({ kind: p.role, text });
     } else if (["function_call", "custom_tool_call", "local_shell_call"].includes(p.type)) {
       const raw = p.arguments ?? p.input ?? p.action ?? "";
-      let input = raw;
+      let input: Json = raw;
       if (typeof raw === "string") {
         try {
           input = JSON.parse(raw);
@@ -65,8 +67,8 @@ export function parseCodex(file) {
         }
       }
       if (p.name === "update_plan" && input && typeof input === "object") {
-        const marks = { completed: "[x]", in_progress: "[~]", pending: "[ ]" };
-        const steps = (input.plan || []).map((s) => `- ${marks[s.status] || "[ ]"} ${s.step || ""}`).join("\n");
+        const marks: Record<string, string> = { completed: "[x]", in_progress: "[~]", pending: "[ ]" };
+        const steps = (input.plan || []).map((s: Json) => `- ${marks[s.status] || "[ ]"} ${s.step || ""}`).join("\n");
         turns.push({ kind: "plan", text: `${input.explanation || ""}\n\n${steps}`.trim(), approved: null });
         continue;
       }

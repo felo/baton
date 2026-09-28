@@ -1,14 +1,15 @@
-import { contentText, describeToolInput, readJsonl, stripNoise } from "./util.js";
-import { INJECTED, newMeta, note } from "./model.js";
+import { INJECTED, newMeta, note } from "./model.ts";
+import type { Parsed, Turn } from "./model.ts";
+import { contentText, describeToolInput, readJsonl, stripNoise } from "./util.ts";
 
 const EDIT_TOOLS = new Set(["Write", "Edit", "MultiEdit", "NotebookEdit"]);
 
-/** Read a Claude Code transcript into the shared turn format (see model.js). */
-export function parseClaude(file) {
+/** Read a Claude Code transcript into the shared turn format. */
+export function parseClaude(file: string): Parsed {
   const meta = newMeta();
-  const turns = [];
-  const files = new Set();
-  const plans = new Map(); // tool_use id -> index of its plan turn
+  const turns: Turn[] = [];
+  const files = new Set<string>();
+  const plans = new Map<string, number>(); // tool_use id -> index of its plan turn
 
   for (const e of readJsonl(file)) {
     const t = e.type;
@@ -26,20 +27,20 @@ export function parseClaude(file) {
     // Sidechains are sub-agents; their final answers already appear as tool results.
     if (e.isSidechain || (t !== "user" && t !== "assistant")) continue;
 
-    meta.first ||= e.timestamp;
+    meta.first ||= e.timestamp ?? null;
     meta.last = e.timestamp || meta.last;
     meta.cwd = e.cwd || meta.cwd;
     meta.branch = e.gitBranch || meta.branch;
     const msg = e.message || {};
     const content = msg.content;
-    if (t === "assistant" && msg.model && !msg.model.startsWith("<")) meta.models.add(msg.model);
+    if (t === "assistant" && typeof msg.model === "string" && !msg.model.startsWith("<")) meta.models.add(msg.model);
 
     if (e.isCompactSummary) {
       turns.push({ kind: "summary", text: contentText(content) });
       continue;
     }
     if (e.isApiErrorMessage) {
-      turns.push({ kind: "error", text: stripNoise(contentText(content)), code: e.error });
+      turns.push({ kind: "error", text: stripNoise(contentText(content)), code: e.error ?? null });
       continue;
     }
     if (typeof content === "string") {
@@ -74,7 +75,8 @@ export function parseClaude(file) {
         const planIdx = plans.get(block.tool_use_id);
         if (planIdx !== undefined) {
           const approved = /approved/i.test(text) && !block.is_error;
-          turns[planIdx].approved = approved;
+          const plan = turns[planIdx];
+          if (plan.kind === "plan") plan.approved = approved;
           turns.push({ kind: "tool_result", text: approved ? "User approved the plan." : text, error: !!block.is_error });
           continue;
         }

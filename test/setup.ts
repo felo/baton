@@ -5,4 +5,6 @@ import os from "node:os";
 import path from "node:path";
 
 process.env.HOME = fs.mkdtempSync(path.join(os.tmpdir(), "baton-home-"));
-for (const v of ["CLAUDE_CONFIG_DIR", "CODEX_HOME", "BATON_DIR", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID"]) delete process.env[v];
+for (const v of ["CLAUDE_CONFIG_DIR", "CODEX_HOME", "BATON_DIR", "BATON_KEEP_DAYS", "CLAUDE_CODE_SESSION_ID", "CODEX_THREAD_ID", "CODEX_SESSION_ID"]) {
+  delete process.env[v];
+}

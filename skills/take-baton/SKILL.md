@@ -12,7 +12,7 @@ Pick up a hand-over saved by [baton](https://github.com/felo/baton) and continue
 1. Find the hand-over file. With no hint from the user, take the latest:
 
    ```sh
-   if command -v baton >/dev/null; then baton take --path; else npx -y agent-baton take --path; fi
+   if command -v baton >/dev/null; then baton take --latest --path; else npx -y agent-baton take --latest --path; fi
    ```
 
    If the user names one (a project, a title, a date, or a number from the list), pass it: `baton take --path checkout`. Run `baton list` to show the options if it's unclear which one they mean.

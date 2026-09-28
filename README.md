@@ -71,14 +71,18 @@ One Markdown file, written to be read top to bottom:
 | | |
 |---|---|
 | `baton` | Save the session you're in |
+| `baton take` | Pick a hand-over with the arrow keys, and get a "read this and continue" prompt for it |
+| `baton take 3` | Skip the picker: number 3 in the list |
+| `baton take checkout` | Skip the picker: the newest whose title, project or date matches |
 | `baton list` | Your saved hand-overs, newest first |
-| `baton take` | A "read this and continue" prompt for the latest one |
-| `baton take 3` | …for number 3 in the list |
-| `baton take checkout` | …for the newest whose title, project or date matches |
-| `baton pick` | Choose one with the arrow keys |
+| `baton clean` | Tick what to delete (anything over 30 days old is pre-ticked), then confirm |
+| `baton flush` | Delete them all, after a y/N check |
+
+When an agent runs `baton take` there's no keyboard, so it gets the latest one straight away.
 
 Useful options:
 
+- `--latest` skips the picker and takes the newest.
 - `--content` prints the whole hand-over instead of the prompt.
 - `--path` prints only the file path.
 - `--out <dir>` saves somewhere other than `~/.baton`.
@@ -87,6 +91,9 @@ Useful options:
 - `--no-diff` leaves out your uncommitted code.
 - `--session <id>` hands over a specific session instead of the current one.
 - `--tool claude|codex` only looks at one tool's sessions.
+- `--yes` deletes without asking, for scripts.
+
+Hand-overs older than 30 days are tidied up automatically each time you save. Set `BATON_KEEP_DAYS` to change that, or `0` to keep them forever.
 
 ## Works with
 
@@ -109,7 +116,18 @@ Hand-overs go both ways: Claude → Codex, Codex → Claude, Claude → Claude o
 
 ## Requirements
 
-Node.js 18 or newer. No dependencies.
+Node.js 18 or newer. No runtime dependencies.
+
+## Development
+
+```sh
+git clone https://github.com/felo/baton && cd baton
+npm install        # also builds
+npm run check      # typecheck + tests
+npm link           # use your local copy as `baton`
+```
+
+Written in TypeScript; tests run straight from the source with Node's built-in test runner (Node 22.18+). The published package is plain JavaScript and runs on Node 18+.
 
 ## License
 

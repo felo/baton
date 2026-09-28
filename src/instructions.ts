@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import { HOME, isDir, isFile } from "./util.js";
+import { HOME, isDir, isFile } from "./util.ts";
+
+export type InstructionKind = "global" | "project" | "imported" | "memory";
 
 const PROJECT_NAMES = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", "AGENTS.md", "AGENTS.override.md"];
 const IMPORT_LINE = /^@(\S+)\s*$/gm;
@@ -10,11 +12,11 @@ const IMPORT_LINE = /^@(\S+)\s*$/gm;
  * global files, then project files from the home dir down to cwd, then Claude's
  * per-project memory. Both Claude and Codex files are included whichever tool
  * wrote the transcript, since the next agent may be either.
- * Returns [{ kind, file }], deduplicated by real path.
+ * Deduplicated by real path.
  */
-export function instructionFiles(cwd, transcript) {
-  const found = [];
-  const globals = [];
+export function instructionFiles(cwd: string, transcript?: string): { kind: InstructionKind; file: string }[] {
+  const found: { kind: InstructionKind; file: string }[] = [];
+  const globals: string[] = [];
   if (process.env.CLAUDE_CONFIG_DIR) globals.push(path.join(process.env.CLAUDE_CONFIG_DIR, "CLAUDE.md"));
   globals.push(path.join(HOME, ".claude/CLAUDE.md"));
   for (const root of [process.env.CODEX_HOME, path.join(HOME, ".codex")]) {
@@ -22,8 +24,8 @@ export function instructionFiles(cwd, transcript) {
   }
   for (const f of globals) found.push({ kind: "global", file: f });
 
-  // Project files apply from the repo root (or home) down to the working directory.
-  const chain = [];
+  // Project files apply from the home dir (exclusive) down to the working directory.
+  const chain: string[] = [];
   let dir = path.resolve(cwd);
   while (true) {
     chain.push(dir);
@@ -45,9 +47,9 @@ export function instructionFiles(cwd, transcript) {
     }
   }
 
-  const seen = new Set();
-  const result = [];
-  const add = (kind, file) => {
+  const seen = new Set<string>();
+  const result: { kind: InstructionKind; file: string }[] = [];
+  const add = (kind: InstructionKind, file: string): boolean => {
     if (!isFile(file)) return false;
     const real = fs.realpathSync(file);
     if (seen.has(real)) return false;

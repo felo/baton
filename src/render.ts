@@ -1,30 +1,35 @@
-import path from "node:path";
 import fs from "node:fs";
-import { clip, fence, firstLine, HOME, redact } from "./util.js";
-import { instructionFiles } from "./instructions.js";
-import { fullPatch, isRepo, repoState } from "./repo.js";
+import path from "node:path";
+import type { Info, Meta, Session, StopCode, Tool, Turn } from "./model.ts";
+import { instructionFiles } from "./instructions.ts";
+import type { InstructionKind } from "./instructions.ts";
+import { fullPatch, isRepo, repoState } from "./repo.ts";
+import type { RepoState } from "./repo.ts";
+import { clip, fence, firstLine, HOME, redact } from "./util.ts";
 
 const TOOL_INPUT_MAX = 800;
 const TOOL_OUTPUT_MAX = 2000;
-export const TOOL_NAMES = { claude: "Claude Code", codex: "Codex" };
+export const TOOL_NAMES: Record<Tool, string> = { claude: "Claude Code", codex: "Codex" };
 
 /** Why the previous agent stopped, judged from what came after the user's last message. */
-export function stopStatus(turns) {
+export function stopStatus(turns: Turn[]): { code: StopCode; line: string } {
   let lastUser = -1;
-  turns.forEach((t, i) => t.kind === "user" && (lastUser = i));
+  turns.forEach((t, i) => {
+    if (t.kind === "user") lastUser = i;
+  });
   const tail = turns.slice(lastUser + 1);
   const errors = tail.filter((t) => t.kind === "error");
-  if (errors.length) {
-    const e = errors[errors.length - 1];
-    const text = firstLine(e.text, 300);
-    if (/limit|credits|quota/i.test(`${e.code || ""} ${text}`)) {
+  const lastError = errors[errors.length - 1];
+  if (lastError) {
+    const text = firstLine(lastError.text, 300);
+    if (/limit|credits|quota/i.test(`${lastError.code || ""} ${text}`)) {
       return { code: "out-of-usage", line: `**It ran out of usage** and stopped mid-task: "${text}". Its work on the user's last message is probably unfinished.` };
     }
     return { code: "error", line: `**It stopped on an error:** "${text}". Its work on the user's last message may be unfinished.` };
   }
   if (!tail.length) return { code: "unanswered", line: "**The user's last message hasn't been answered yet.** Start there." };
   const last = tail.filter((t) => t.kind !== "thought" && t.kind !== "notice").pop() || tail[tail.length - 1];
-  if (["tool_call", "tool_result", "plan"].includes(last.kind)) {
+  if (last.kind === "tool_call" || last.kind === "tool_result" || last.kind === "plan") {
     return {
       code: "mid-task",
       line: "**It stopped mid-task:** its last action was a tool call with no reply to the user after it. Its work on the user's last message is probably unfinished.",
@@ -33,21 +38,24 @@ export function stopStatus(turns) {
   return { code: "finished", line: "**It finished its last reply** and was waiting for the user. Continue from the user's next instruction." };
 }
 
-function lastAction(turns) {
+function lastAction(turns: Turn[]): string | null {
   for (let i = turns.length - 1; i >= 0; i--) {
-    if (turns[i].kind === "tool_call") return `\`${turns[i].name}\`: ${firstLine(turns[i].text, 160)}`;
+    const t = turns[i];
+    if (t.kind === "tool_call") return `\`${t.name}\`: ${firstLine(t.text, 160)}`;
   }
   return null;
 }
 
-export function titleOf(meta, turns) {
+export function titleOf(meta: Meta, turns: Turn[]): string {
   if (meta.title) return meta.title;
   const firstUser = turns.find((t) => t.kind === "user");
   return firstUser ? firstLine(firstUser.text, 60) : path.basename(meta.cwd || process.cwd());
 }
 
-function conversation(turns, full) {
-  const out = [];
+const byApproval = <T>(approved: boolean | null, yes: T, no: T, none: T): T => (approved === true ? yes : approved === false ? no : none);
+
+function conversation(turns: Turn[], full: boolean): string[] {
+  const out: string[] = [];
   for (const t of turns) {
     switch (t.kind) {
       case "summary":
@@ -65,11 +73,9 @@ function conversation(turns, full) {
       case "notice":
         out.push("**⚙️ automatic notice** (not typed by the user)\n\n" + fence(clip(t.text, TOOL_INPUT_MAX, full)) + "\n");
         break;
-      case "plan": {
-        const state = { true: " (approved)", false: " (not approved)", null: "" }[t.approved];
-        out.push(`**📋 Plan${state}**\n\n` + fence(clip(t.text, TOOL_INPUT_MAX, full)) + "\n");
+      case "plan":
+        out.push(`**📋 Plan${byApproval(t.approved, " (approved)", " (not approved)", "")}**\n\n` + fence(clip(t.text, TOOL_INPUT_MAX, full)) + "\n");
         break;
-      }
       case "error":
         out.push(`**⚠️ Stopped: ${firstLine(t.text, 300)}**\n`);
         break;
@@ -84,23 +90,37 @@ function conversation(turns, full) {
   return out;
 }
 
+interface Section {
+  heading: string;
+  purpose: string;
+  body: string[];
+}
+
 /**
  * Build the hand-over document: a briefing first, then numbered sections in
- * reading order. Returns { markdown, info } where info feeds `baton list`.
+ * reading order. `info` is what `baton list` shows.
  */
-export function render({ file, tool, meta, turns, files }, { full = false, diff = true, now = new Date() } = {}) {
+export function render(
+  { file, tool, meta, turns, files }: Session,
+  { full = false, diff = true, now = new Date() }: { full?: boolean; diff?: boolean; now?: Date } = {},
+): { markdown: string; info: Info } {
   const cwd = meta.cwd || process.cwd();
   const title = titleOf(meta, turns);
   const source = TOOL_NAMES[tool];
   const models = [...meta.models].sort().join(", ") || "model unknown";
-  const sections = []; // { heading, purpose, body: string[] }
+  const sections: Section[] = [];
 
   const instr = instructionFiles(cwd, file);
   if (instr.length) {
-    const kinds = { global: "global instructions", project: "project instructions", imported: "imported by an instruction file", memory: "saved memory" };
+    const kinds: Record<InstructionKind, string> = {
+      global: "global instructions",
+      project: "project instructions",
+      imported: "imported by an instruction file",
+      memory: "saved memory",
+    };
     const body = ["The previous agent was loaded with these files before the conversation started. They are the user's rules for how to work. Follow them.\n"];
     for (const { kind, file: f } of instr) {
-      let text;
+      let text: string;
       try {
         text = fs.readFileSync(f, "utf8").trim();
       } catch {
@@ -116,20 +136,21 @@ export function render({ file, tool, meta, turns, files }, { full = false, diff 
   session.push(`- **Working directory:** \`${cwd}\``, `- **Conversation:** ${meta.first || "?"} → ${meta.last || "?"}`, `- **Transcript file:** \`${file}\`\n`);
   sections.push({ heading: "Session", purpose: "which tool, model and settings the previous agent ran with, and where.", body: session });
 
-  const plans = turns.filter((t) => t.kind === "plan");
+  const plans = turns.filter((t): t is Extract<Turn, { kind: "plan" }> => t.kind === "plan");
   const plan = plans[plans.length - 1];
   if (plan) {
-    const state = {
-      true: "The user **approved** this plan.",
-      false: "The user **did not approve** this plan. Check the conversation for what they wanted changed.",
-      null: "This is the agent's own latest checklist.",
-    }[plan.approved];
+    const state = byApproval(
+      plan.approved,
+      "The user **approved** this plan.",
+      "The user **did not approve** this plan. Check the conversation for what they wanted changed.",
+      "This is the agent's own latest checklist.",
+    );
     sections.push({ heading: "Latest plan", purpose: "the most recent plan the agent wrote, in full.", body: [state + "\n", plan.text.trim() + "\n"] });
   }
 
   let patch = "";
-  let skipped = [];
-  let repo = null;
+  let skipped: string[] = [];
+  let repo: RepoState | null = null;
   if (isRepo(cwd)) {
     repo = repoState(cwd);
     if (diff) ({ patch, skipped } = fullPatch(cwd));
@@ -183,21 +204,23 @@ export function render({ file, tool, meta, turns, files }, { full = false, diff 
   if (plan) {
     out.push(
       "- **Plan:** " +
-        {
-          true: "the user approved the plan in *Latest plan*. Check the conversation for how much of it is done.",
-          false: "its latest plan was not approved. See *Latest plan* and the conversation.",
-          null: "its latest checklist is in *Latest plan*.",
-        }[plan.approved],
+        byApproval(
+          plan.approved,
+          "the user approved the plan in *Latest plan*. Check the conversation for how much of it is done.",
+          "its latest plan was not approved. See *Latest plan* and the conversation.",
+          "its latest checklist is in *Latest plan*.",
+        ),
     );
   }
   if (repo?.changed) out.push(`- **Code:** ${repo.changed} file(s) have uncommitted changes` + (patch ? ", and the full patch is at the end." : "."));
-  if (userMsgs.length) {
+  const lastUser = userMsgs[userMsgs.length - 1];
+  if (lastUser) {
     out.push(
       status.code === "finished"
         ? "- **The user's last message** (already answered; wait for their next instruction):\n"
         : "- **The user's last message, which is your task:**\n",
     );
-    out.push("  > " + userMsgs[userMsgs.length - 1].text.replace(/\n/g, "\n  > "));
+    out.push("  > " + lastUser.text.replace(/\n/g, "\n  > "));
   }
   out.push("\n### What's in this file\n");
   sections.forEach((s, i) => out.push(`${i + 1}. **${s.heading}**: ${s.purpose}`));
@@ -221,7 +244,7 @@ export function render({ file, tool, meta, turns, files }, { full = false, diff 
   );
   sections.forEach((s, i) => out.push(`## ${i + 1}. ${s.heading}\n`, ...s.body));
 
-  const info = {
+  const info: Info = {
     title,
     project: path.basename(cwd),
     cwd,

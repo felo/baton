@@ -11,31 +11,37 @@ export const LOGO = [
 ];
 export const TAGLINE = "pass it on.";
 
-const FROM = [217, 119, 87]; // orange
-const TO = [80, 140, 255]; // blue
+type Rgb = [number, number, number];
+
+const FROM: Rgb = [217, 119, 87]; // orange
+const TO: Rgb = [80, 140, 255]; // blue
 const WIDTH = LOGO[0].length;
 const BAND = 6; // half-width of the bright band, in columns
 const FRAME_MS = 22;
 
-const lerp = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+const lerp = (a: Rgb, b: Rgb, t: number): Rgb => a.map((v, i) => Math.round(v + (b[i] - v) * t)) as Rgb;
 
-function ansi256([r, g, b]) {
-  const q = (v) => Math.round((v / 255) * 5);
+export function ansi256([r, g, b]: Rgb): number {
+  const q = (v: number) => Math.round((v / 255) * 5);
   return 16 + 36 * q(r) + 6 * q(g) + q(b);
 }
 
-function colorizer() {
-  const truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "");
+export function colorizer(truecolor = /truecolor|24bit/i.test(process.env.COLORTERM || "")): (rgb: Rgb) => string {
   return (rgb) => (truecolor ? `\x1b[38;2;${rgb.join(";")}m` : `\x1b[38;5;${ansi256(rgb)}m`);
 }
 
-/** Whether the terminal can show the animated logo. Pipes, agents and NO_COLOR get nothing. */
-export function canAnimate(stream = process.stdout) {
+interface Out {
+  isTTY?: boolean;
+  write(s: string): unknown;
+}
+
+/** Whether the terminal can show the animated logo. Pipes, agents, CI and NO_COLOR get nothing. */
+export function canAnimate(stream: Out = process.stdout): boolean {
   return !!stream.isTTY && !process.env.NO_COLOR && process.env.TERM !== "dumb" && !process.env.CI;
 }
 
-/** One frame with the band centred on column `at` (past the end = the settled logo). */
-function frame(at, color) {
+/** One frame with the band centred on column `at`; far past the end gives the settled logo. */
+export function frame(at: number, color: (rgb: Rgb) => string): string[] {
   const lines = LOGO.map((line) => {
     let out = "";
     let last = "";
@@ -46,10 +52,12 @@ function frame(at, color) {
       }
       const base = lerp(FROM, TO, col / (WIDTH - 1));
       const d = at - col; // > 0 once the band has passed this column
-      let rgb;
-      if (d > BAND) rgb = base;
-      else if (d < -BAND) rgb = lerp([40, 40, 48], base, 0.25); // not reached yet: dim
-      else rgb = lerp(base, [255, 255, 255], 1 - Math.abs(d) / BAND); // inside the band: glow
+      const rgb =
+        d > BAND
+          ? base
+          : d < -BAND
+            ? lerp([40, 40, 48], base, 0.25) // not reached yet: dim
+            : lerp(base, [255, 255, 255], 1 - Math.abs(d) / BAND); // inside the band: glow
       const code = color(rgb);
       if (code !== last) out += code;
       last = code;
@@ -62,20 +70,20 @@ function frame(at, color) {
   return lines;
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Play the sweep once, then leave the settled logo on screen. */
-export async function showLogo(stream = process.stdout) {
+export async function showLogo(stream: Out = process.stdout, frameMs = FRAME_MS): Promise<void> {
   if (!canAnimate(stream)) return;
   const color = colorizer();
   const height = LOGO.length + 1;
-  const restore = () => stream.write("\x1b[?25h");
+  const restore = () => void stream.write("\x1b[?25h");
   process.once("exit", restore);
   stream.write("\x1b[?25l\n");
   for (let at = -BAND; at <= WIDTH + BAND; at += 2) {
     if (at > -BAND) stream.write(`\x1b[${height}A`);
     stream.write(frame(at, color).map((l) => `\r\x1b[2K  ${l}`).join("\n") + "\n");
-    await sleep(FRAME_MS);
+    await sleep(frameMs);
   }
   stream.write("\n");
   restore();
