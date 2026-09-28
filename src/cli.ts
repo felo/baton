@@ -6,14 +6,17 @@ import { parseClaude } from "./claude.ts";
 import { parseCodex } from "./codex.ts";
 import { locate } from "./locate.ts";
 import type { Found } from "./locate.ts";
+import { choose, chooseNext, hasCogenity, readStatus } from "./cogenity.ts";
+import type { Choice } from "./cogenity.ts";
+import { detectAgent, hookScript, launchCommand, openTab, runHere, shellQuote, takeNote, wasYolo, writeNote } from "./launch.ts";
 import { showLogo } from "./logo.ts";
-import type { Tool } from "./model.ts";
+import type { Info, Meta, Tool } from "./model.ts";
 import { confirm, pick } from "./picker.ts";
 import { render, TOOL_NAMES } from "./render.ts";
 import { describe, isOld, keepDays, list, localDate, remove, save, select, selectAll, STATUS_LABELS, storeDir } from "./store.ts";
 import type { Entry } from "./store.ts";
 import { interactive, openTerminal } from "./terminal.ts";
-import { plural, tildify } from "./util.ts";
+import { isDir, plural, tildify } from "./util.ts";
 
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
 
@@ -39,7 +42,20 @@ Pick one up:
     --path                    print only the file path
   baton list                saved hand-overs, newest first
 
-Start a new agent on one:
+Switch agents in one go:
+  baton codex               save this session and start Codex on it
+  baton claude              …or Claude Code
+  baton next                …or whichever has the most usage left (needs Cogenity)
+    --account <email>         with Cogenity: use this account
+    --yolo, --no-yolo         skip permission prompts or not (default: as before)
+    --dry-run                 show what would happen, change nothing
+  From a terminal it starts the agent right there. Inside an agent (\`! baton codex\`)
+  it closes that agent and starts the next in the same window, once you've added
+  this to ~/.zshrc (or ~/.bashrc with "bash"):
+    eval "$(baton init zsh)"
+  With Cogenity installed, the agent starts on the account with room left.
+
+Or start one yourself:
   claude "$(baton take)"
   codex "$(baton take)"
 
@@ -64,7 +80,7 @@ export function parseArgs(argv: string[]): Args {
   const args: Args = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === "--session" || a === "--tool" || a === "--out") args[a.slice(2)] = argv[++i];
+    if (a === "--session" || a === "--tool" || a === "--out" || a === "--account") args[a.slice(2)] = argv[++i];
     else if (a.startsWith("--")) args[a.slice(2)] = true;
     else if (a === "-h") args.help = true;
     else if (a === "-v") args.version = true;
@@ -84,7 +100,15 @@ function continuePrompt(file: string): string {
   return `Read the hand-over at ${file}. Another AI agent wrote it when it had to stop. Start with its Briefing section, then continue the work.`;
 }
 
-async function runSave(args: Args): Promise<void> {
+interface Saved {
+  file: string;
+  info: Info;
+  meta: Meta;
+  /** What to tell the user: where it went, and what it contains. */
+  lines: string[];
+}
+
+async function saveSession(args: Args): Promise<Saved | null> {
   if (args.tool && !(args.tool in TOOL_NAMES)) fail("--tool must be claude or codex");
   let found: Found;
   try {
@@ -94,7 +118,10 @@ async function runSave(args: Args): Promise<void> {
   }
   const parsed = (found.tool === "claude" ? parseClaude : parseCodex)(found.file);
   const { markdown, info } = render({ ...found, ...parsed }, { full: !!args.full, diff: !args["no-diff"] });
-  if (args.stdout) return void process.stdout.write(markdown);
+  if (args.stdout) {
+    process.stdout.write(markdown);
+    return null;
+  }
 
   const dir = args.out ? path.resolve(args.out) : storeDir();
   const firstRun = !fs.existsSync(dir);
@@ -104,17 +131,24 @@ async function runSave(args: Args): Promise<void> {
   const pruned = args.out ? 0 : remove(list(dir).filter((e) => e.file !== file && isOld(e)));
 
   const kb = Math.max(1, Math.round(Buffer.byteLength(markdown) / 1024));
-  const out = [
+  const lines = [
     `Saved ${tildify(file)}`,
     `  ${TOOL_NAMES[info.source]} · ${STATUS_LABELS[info.status]} · ${plural(info.userMessages, "message")} from you · ${kb} KB`,
   ];
-  if (pruned) out.push(`  Cleaned up ${plural(pruned, "hand-over")} older than ${keepDays()} days.`);
-  out.push("", "Hand it to the next agent:");
+  if (pruned) lines.push(`  Cleaned up ${plural(pruned, "hand-over")} older than ${keepDays()} days.`);
+  return { file, info, meta: parsed.meta, lines };
+}
+
+async function runSave(args: Args): Promise<void> {
+  const saved = await saveSession(args);
+  if (!saved) return;
+  const { file, lines } = saved;
+  const out = [...lines, "", "Hand it to the next agent:"];
   if (args.out) out.push(`  ${continuePrompt(file)}`);
   else {
     out.push(
-      `  claude "$(baton take)"    start a new Claude Code chat on it`,
-      `  codex "$(baton take)"     or a Codex one`,
+      `  baton codex               start Codex on it (or baton claude, baton next)`,
+      `  claude "$(baton take)"    start one yourself, with any options you like`,
       `  baton take                or print the prompt to paste into any agent`,
     );
   }
@@ -186,13 +220,127 @@ async function runClean(entries: Entry[], args: Args): Promise<void> {
   }
 }
 
+const other = (t: Tool): Tool => (t === "claude" ? "codex" : "claude");
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** "04:00", "tomorrow 04:00" or a date, for when a limit resets. */
+function when(iso: string): string {
+  const d = new Date(iso);
+  const day = (x: Date) => x.toDateString();
+  const time = localDate(iso).slice(11);
+  const now = new Date();
+  if (day(d) === day(now)) return time;
+  if (day(d) === day(new Date(now.getTime() + 86_400_000))) return `tomorrow ${time}`;
+  return localDate(iso);
+}
+
+async function ask(question: string, defaultYes: boolean): Promise<boolean> {
+  const term = openTerminal();
+  try {
+    return await confirm(term, question, { defaultYes });
+  } finally {
+    term.close();
+  }
+}
+
+/**
+ * `baton claude|codex|next`: save this session and start the next agent on it.
+ * With Cogenity, on the account it would pick (and not on one that's used up).
+ */
+async function runHandoff(target: Tool | "next", args: Args): Promise<void> {
+  const agent = detectAgent();
+  const useCogenity = !args["no-cogenity"];
+  const status = useCogenity ? readStatus() : null;
+  // Cogenity may be installed even if its status can't be read; then its own picker chooses.
+  const viaCogenity = status !== null || (useCogenity && hasCogenity());
+
+  let tool: Tool;
+  if (target !== "next") tool = target;
+  else {
+    const best = status ? chooseNext(status, agent?.tool) : null;
+    if (best) tool = best.tool;
+    else if (agent) tool = other(agent.tool);
+    else fail("`baton next` needs Cogenity to see which account has room. Use `baton claude` or `baton codex`.");
+  }
+
+  let chosen: Choice | null = args.account || !status ? null : choose(status, tool);
+  if (chosen?.exhausted) {
+    const until = chosen.resetsAt ? ` until ${when(chosen.resetsAt)}` : "";
+    const msg = `Every ${TOOL_NAMES[tool]} account is used up${until}.`;
+    const alt = status ? choose(status, other(tool)) : null;
+    if (alt && !alt.exhausted) {
+      if (!interactive()) fail(`${msg} Use \`baton ${alt.tool}\` or \`baton next\` instead, or pass --account to use one anyway.`);
+      if (await ask(`${msg} Hand over to ${TOOL_NAMES[alt.tool]} instead?`, true)) {
+        tool = alt.tool;
+        chosen = alt;
+      }
+    } else {
+      if (!interactive()) fail(`${msg} So is every other account. Pass --account to use one anyway.`);
+      if (!(await ask(`${msg} So is every other account. Start it anyway?`, false))) return say("Nothing changed.");
+    }
+  }
+
+  const saved = await saveSession({ ...args, stdout: false, out: undefined });
+  if (!saved) return;
+  const cwd = isDir(saved.info.cwd) ? saved.info.cwd : process.cwd();
+  const account = (args.account as string | undefined) ?? chosen?.account ?? null;
+  const yolo = args.yolo ? true : args["no-yolo"] ? false : wasYolo(saved.meta);
+  const command = launchCommand(tool, continuePrompt(saved.file), { cogenity: viaCogenity, account, yolo });
+  const who =
+    TOOL_NAMES[tool] +
+    (account ? ` on ${account}` + (chosen && !args.account ? ` (${chosen.used}% used)` : "") : "") +
+    (viaCogenity ? " via Cogenity" : "") +
+    (yolo ? ", without permission prompts" : "");
+  say(saved.lines.join("\n"));
+
+  if (args["dry-run"]) return say(`\nWould start ${who}:\n  cd ${shellQuote([cwd])} && ${shellQuote(command)}`);
+
+  if (!agent) {
+    say(`\nStarting ${who}…`);
+    process.exitCode = await runHere(command, cwd);
+    return;
+  }
+  if (process.env.BATON_HOOK) {
+    writeNote(command, cwd);
+    say(`\nClosing ${TOOL_NAMES[agent.tool]}. ${who} starts in this window in a moment.`);
+    await sleep(300); // let that line show before the agent's screen goes
+    try {
+      process.kill(agent.pid, "SIGTERM");
+    } catch (err) {
+      fail(`couldn't close ${TOOL_NAMES[agent.tool]} (${(err as Error).message}). Quit it yourself; ${TOOL_NAMES[tool]} starts when you do.`);
+    }
+    return;
+  }
+  const line = `cd ${shellQuote([cwd])} && ${shellQuote(command)}`;
+  if (openTab(line)) return say(`\nOpened ${who} in a new tab. You can close this chat.`);
+  say(
+    `\nStart ${who} with:\n  ${line}\n\n` +
+      `Tip: add this line to ~/.zshrc, and next time \`! baton ${tool}\` switches in this window by itself:\n  eval "$(baton init zsh)"`,
+  );
+}
+
+function runInit(args: Args): void {
+  const shell = args._[0] || path.basename(process.env.SHELL || "");
+  const script = hookScript(shell);
+  if (!script) fail(`no hook for "${shell}" yet. Supported: zsh, bash.`);
+  process.stdout.write(script);
+}
+
+/** Called by the shell hook: print the command a hand-over left for this shell, if any. */
+function runNext(): void {
+  const line = takeNote();
+  if (!line) return;
+  process.stderr.write("baton: starting the next agent on the hand-over…\n");
+  say(line);
+}
+
 async function main(argv: string[]): Promise<void> {
   // `baton take --content | head` closes the pipe early; that's not an error.
   process.stdout.on("error", (err: NodeJS.ErrnoException) => {
     if (err.code === "EPIPE") process.exit(0);
     throw err;
   });
-  const commands = ["save", "list", "ls", "take", "pick", "clean", "flush", "help"];
+  const commands = ["save", "list", "ls", "take", "pick", "clean", "flush", "claude", "codex", "next", "init", "_next", "help"];
   const command = commands.includes(argv[0]) ? argv[0] : "save";
   const args = parseArgs(command === argv[0] ? argv.slice(1) : argv);
 
@@ -202,6 +350,9 @@ async function main(argv: string[]): Promise<void> {
     return void process.stdout.write(help());
   }
   if (command === "save") return runSave(args);
+  if (command === "claude" || command === "codex" || command === "next") return runHandoff(command, args);
+  if (command === "init") return runInit(args);
+  if (command === "_next") return runNext();
 
   const entries = list(args.out ? path.resolve(args.out) : undefined);
   if (command === "clean" || command === "flush") return runClean(entries, { ...args, all: args.all || command === "flush" });

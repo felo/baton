@@ -35,6 +35,24 @@ That's it. The new agent reads the hand-over and carries on.
 
 > Install it once with `npm i -g baton-ai` and every command above is just `baton`.
 
+### Or switch in one go
+
+```sh
+baton codex        # save this session and start Codex on it
+baton claude       # …or Claude Code
+baton next         # …or whichever has the most usage left
+```
+
+From a terminal, the next agent starts right there. From inside a chat, type `! baton codex`: baton closes the current agent and starts the next one in the same window. For that, add this line to your `~/.zshrc` (or `~/.bashrc`, with `bash`) once:
+
+```sh
+eval "$(baton init zsh)"
+```
+
+Without it, baton opens the next agent in a new tab (Terminal and iTerm) or prints the command to run.
+
+**With [Cogenity](https://github.com/kennethlynne/cogenity)**, the next agent starts on the account with the most room left. Out of tokens on one Claude account? `! baton claude` carries on with another. If every account for that tool is used up, baton says when they reset and offers the other tool instead.
+
 ### Or just ask your agent
 
 Add the skills once:
@@ -77,6 +95,9 @@ One Markdown file, written to be read top to bottom:
 | `baton list` | Your saved hand-overs, newest first |
 | `baton clean` | Tick what to delete (anything over 30 days old is pre-ticked), then confirm |
 | `baton flush` | Delete them all, after a y/N check |
+| `baton codex` / `baton claude` | Save this session and start that agent on it |
+| `baton next` | Same, with whichever agent has the most usage left (Cogenity) |
+| `baton init zsh` | The shell hook that lets `! baton codex` switch in place |
 
 When an agent runs `baton take` there's no keyboard, so it gets the latest one straight away.
 
@@ -92,6 +113,9 @@ Useful options:
 - `--session <id>` hands over a specific session instead of the current one.
 - `--tool claude|codex` only looks at one tool's sessions.
 - `--yes` deletes without asking, for scripts.
+- `--account <email>` starts the next agent on a specific Cogenity account.
+- `--yolo` / `--no-yolo` skips permission prompts in the next agent, or doesn't. By default it matches the previous one.
+- `--dry-run` shows what `baton codex` would do without doing it.
 
 Hand-overs older than 30 days are tidied up automatically each time you save. Set `BATON_KEEP_DAYS` to change that, or `0` to keep them forever.
 

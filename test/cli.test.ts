@@ -14,7 +14,8 @@ function baton(args: string[], { dir = tmp(), cwd = tmp(), env = {} }: { dir?: s
     cwd,
     encoding: "utf8",
     stdio: ["ignore", "pipe", "pipe"],
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, BATON_DIR: dir, ...env },
+    // Never find a real agent or a real Cogenity from inside the test run.
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, BATON_DIR: dir, BATON_AGENT: "none", BATON_NO_COGENITY: "1", ...env },
   });
   return { code: r.status, out: r.stdout, err: r.stderr, dir };
 }

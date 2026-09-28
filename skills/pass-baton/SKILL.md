@@ -31,6 +31,16 @@ Save the current session with [baton](https://github.com/felo/baton) so another 
 
    (With `npx -y baton-ai take` in place of `baton take` if it isn't installed.)
 
+## Switching straight away
+
+If the user wants to switch agents right now ("switch to Codex", "continue in Claude on another account"), use one of these instead of step 2. It saves the hand-over, then closes this session and starts the next agent on it:
+
+```sh
+baton codex    # or: baton claude, baton next (the agent with the most usage left)
+```
+
+Only do this when the user asked to switch: it ends the current session. Tell them first, in one sentence, what's about to happen. If baton says every account for that tool is used up, pass that on and suggest the alternative it names.
+
 ## Notes
 
 - Everything written up to now is included: the conversation, commands and results, the user's instruction files, the latest plan, and every uncommitted change as a patch.

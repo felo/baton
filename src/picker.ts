@@ -131,20 +131,27 @@ export function pick<T>(term: Terminal, items: T[], label: (item: T) => string, 
   });
 }
 
-/** Only "y" or "yes" counts as yes; anything else, including just enter, is no. */
-export const isYes = (answer: string): boolean => /^y(es)?$/i.test(answer.trim());
+/**
+ * Only "y" or "yes" counts as yes. Just pressing enter gives the default,
+ * which is no unless the question says otherwise.
+ */
+export const isYes = (answer: string, defaultYes = false): boolean => (answer.trim() === "" ? defaultYes : /^y(es)?$/i.test(answer.trim()));
 
-/** Ask a yes/no question on the terminal. Defaults to no. */
-export function confirm(term: Terminal, question: string): Promise<boolean> {
-  term.write(`${question} \x1b[2m[y/N]\x1b[0m `);
+/** Ask a yes/no question on the terminal. Escape and ctrl-c always mean no. */
+export function confirm(term: Terminal, question: string, { defaultYes = false } = {}): Promise<boolean> {
+  term.write(`${question} \x1b[2m${defaultYes ? "[Y/n]" : "[y/N]"}\x1b[0m `);
   let answer = "";
   return new Promise((resolve) => {
     term.onKey((key) => {
-      if (key === KEYS.ctrlC || key === KEYS.escape) key = KEYS.enter;
+      if (key === KEYS.ctrlC || key === KEYS.escape) {
+        term.onKey(null);
+        term.write("\n");
+        return resolve(false);
+      }
       if (key === KEYS.enter || key === "\n") {
         term.onKey(null);
         term.write("\n");
-        return resolve(isYes(answer));
+        return resolve(isYes(answer, defaultYes));
       }
       if (key === KEYS.backspace || key === "\b") {
         if (answer) term.write("\b \b");
